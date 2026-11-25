@@ -92,6 +92,7 @@ V.home = () => {
     '<div class="bar"><i style="width:' + (100 * doneN / D.units.length).toFixed(1) + '%"></i></div>' +
     (nu ? '<button class="btn pri" onclick="go(\'unit\',{id:\'' + nu + '\',step:\'read\'})">이어서 학습 ▶ ' + esc(U[nu].title) + '</button>' : '<div class="sub">모든 요약을 한 번씩 끝냈어요. 빈칸 복습과 오답으로 다지세요.</div>') +
     ((wN || freshLeft().length) ? '<button class="btn pri" style="background:var(--no);border-color:var(--no)" onclick="go(\'quiz\',{set:\'fresh\'})">🔥 오답 + 새 핵심문제 20 (새 문제 ' + freshLeft().length + '개 남음)</button>' : '') +
+    '<a class="btn" style="text-align:center;text-decoration:none" href="new/">🆕 새 핵심문제 앱 (1차 90 · 2차 오답개념 90) ›</a>' +
     '<div class="grid2"><button class="btn" ' + (due ? '' : 'disabled') + ' onclick="go(\'cloze\',{set:\'due\'})">🧠 빈칸 복습 ' + due + '</button>' +
     '<button class="btn" ' + (wN ? '' : 'disabled') + ' onclick="go(\'quiz\',{set:\'wrong\'})">✍️ 오답 다시 ' + wN + '</button></div></div>';
   h += '<div class="card"><div class="sub" style="margin-bottom:4px">과목별</div>';
@@ -339,9 +340,21 @@ V.stats = () => {
       '<div class="sub">외운 빈칸 ' + cm + '/' + cz.length + '</div><div class="bar"><i style="width:' + (100 * cm / Math.max(1, cz.length)) + '%"></i></div>' +
       '<div class="sub">문제 정답률 ' + (st.n ? Math.round(100 * st.ok / st.n) : 0) + '% (푼 ' + st.n + '/' + qs.length + ') · 남은 오답 ' + wrongIds().filter(id => Qm[id].s === s).length + '</div></div>';
   }
+  const wl = wrongIds();
+  h += '<div class="card"><b>내 오답 번호 내보내기</b><div class="sub" style="margin-top:4px">복사해서 Claude 채팅에 붙여 넣으면, 그 개념으로 새 문제를 만들어 드려요. 문제 번호만 담깁니다.</div>' +
+    '<button class="btn pri" ' + (wl.length ? '' : 'disabled') + ' onclick="copyWrong()">📋 내 오답 번호 복사 (' + wl.length + ')</button><div id="wout"></div></div>';
   h += '<div class="card sub">기록은 이 기기의 이 브라우저에만 저장됩니다. 카카오톡과 크롬은 기록이 따로 쌓여요.</div>';
   return h;
 };
+
+function copyWrong() {
+  const by = { 1: [], 2: [], 3: [] };
+  wrongIds().forEach(id => { const q = Qm[id], r = S.q[id]; by[q.s].push(id + (r ? '(' + r.n + '회 중 ' + (r.n - r.ok) + '오답)' : '(시드)')); });
+  const txt = '앱 오답 ' + today() + '\n' + [1, 2, 3].map(s => s + '권 ' + by[s].length + '개: ' + by[s].join(', ')).join('\n');
+  const show = msg => { $('#wout').innerHTML = '<div class="sub" style="margin:6px 0">' + msg + '</div><textarea readonly style="width:100%;height:140px;font:inherit;font-size:.8em" onclick="this.select()">' + esc(txt) + '</textarea>'; };
+  try { navigator.clipboard.writeText(txt).then(() => show('복사했어요. 채팅에 붙여 넣으세요.'), () => show('자동 복사가 막혔어요. 아래 글을 길게 눌러 전체 선택 → 복사하세요.')); }
+  catch (e) { show('아래 글을 길게 눌러 전체 선택 → 복사하세요.'); }
+}
 
 V.tips = () => {
   let h = hdr('진단 · 시험 요령');
