@@ -1,5 +1,5 @@
 // 오프라인 지원: 네트워크 우선, 실패하면 캐시
-const C = 'vca-study-v1';
+const C = 'vca-study-v2';
 const SHELL = ['./', 'index.html', 'app.js', 'data.enc.json', 'manifest.webmanifest', 'icon-192.png'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(C).then(c => c.addAll(SHELL)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', e => {

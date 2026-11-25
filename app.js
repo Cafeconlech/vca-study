@@ -63,6 +63,13 @@ function nextUnit(fromId) {
   return null;
 }
 function wrongIds() { return Object.keys(S.wrong).filter(id => S.wrong[id] && Qm[id]); }
+const freshLeft = s => D.questions.filter(q => q.f.includes('n') && (!s || q.s === s) && !S.q[q.id]);
+// 오답 + 안 푼 신규 문제를 번갈아 섞어 20개. 한 판 안에서는 같은 문제가 다시 나오지 않는다.
+function freshMix(s) {
+  const w = shuffle(wrongIds().map(id => Qm[id]).filter(q => !s || q.s === s)), n = shuffle(freshLeft(s)), out = [];
+  while (out.length < 20 && (w.length || n.length)) { if (n.length) out.push(n.shift()); if (w.length && out.length < 20) out.push(w.shift()); }
+  return out;
+}
 function qStat(list) { let n = 0, ok = 0; list.forEach(q => { const r = S.q[q.id]; if (r) { n++; if (r.last) ok++; } }); return { n, ok }; }
 
 // ---------- 화면들 ----------
@@ -84,6 +91,7 @@ V.home = () => {
     '<div class="sp"><div class="big">' + wN + '</div><div class="sub">남은 오답</div></div></div>' +
     '<div class="bar"><i style="width:' + (100 * doneN / D.units.length).toFixed(1) + '%"></i></div>' +
     (nu ? '<button class="btn pri" onclick="go(\'unit\',{id:\'' + nu + '\',step:\'read\'})">이어서 학습 ▶ ' + esc(U[nu].title) + '</button>' : '<div class="sub">모든 요약을 한 번씩 끝냈어요. 빈칸 복습과 오답으로 다지세요.</div>') +
+    ((wN || freshLeft().length) ? '<button class="btn pri" style="background:var(--no);border-color:var(--no)" onclick="go(\'quiz\',{set:\'fresh\'})">🔥 오답 + 새 핵심문제 20 (새 문제 ' + freshLeft().length + '개 남음)</button>' : '') +
     '<div class="grid2"><button class="btn" ' + (due ? '' : 'disabled') + ' onclick="go(\'cloze\',{set:\'due\'})">🧠 빈칸 복습 ' + due + '</button>' +
     '<button class="btn" ' + (wN ? '' : 'disabled') + ' onclick="go(\'quiz\',{set:\'wrong\'})">✍️ 오답 다시 ' + wN + '</button></div></div>';
   h += '<div class="card"><div class="sub" style="margin-bottom:4px">과목별</div>';
@@ -136,7 +144,8 @@ V.unit = ({ id, step, i }) => {
   const u = U[id];
   S.last = id; save();
   const cz = D.clozes.filter(c => c.u === id);
-  const qs = u.qs.map(x => Qm[x]).filter(Boolean);
+  // 예전에(오늘 이전) 이미 맞힌 문제는 요약 단계에서 다시 내지 않는다 → 반복 줄이기
+  const qs = u.qs.map(x => Qm[x]).filter(Boolean).filter(q => { const r = S.q[q.id]; return !(r && r.last && (r.day || '') < today()); });
   const steps = ['read', 'cloze', 'quiz', 'done'];
   const label = { read: '① 요약', cloze: '② 빈칸 ' + cz.length, quiz: '③ 문제 ' + qs.length, done: '완료' };
   let h = hdr(u.title) + '<div class="steps">' + steps.map(s => '<span class="' + (s === step ? 'on' : '') + '">' + label[s] + '</span>').join('') + '</div>';
@@ -165,6 +174,7 @@ V.unit = ({ id, step, i }) => {
   }
   if (step === 'quiz') {
     const qi = i || 0;
+    if (!qs[qi]) { setTimeout(() => finishUnit(id)); return h; }
     h += mcqCard(qs[qi], qi + 1, qs.length, () => {
       if (qi + 1 < qs.length) go('unit', { id, step: 'quiz', i: qi + 1 }, false);
       else finishUnit(id);
@@ -212,7 +222,7 @@ function gradeCloze(id, ok) {
 let mcqCb = null, mcqLocked = false;
 function mcqCard(q, n, total, cb, inUnit) {
   mcqCb = cb; mcqLocked = false;
-  const tags = (q.f.includes('o') ? '<span class="tag w">공식기출</span>' : '') + (q.f.includes('x') ? '<span class="tag">실전</span>' : '') + (q.f.includes('l') ? '<span class="tag">강의예상</span>' : '') +
+  const tags = (q.f.includes('n') ? '<span class="tag no">🔥 신규</span>' : '') + (q.f.includes('o') ?'<span class="tag w">공식기출</span>' : '') + (q.f.includes('x') ? '<span class="tag">실전</span>' : '') + (q.f.includes('l') ? '<span class="tag">강의예상</span>' : '') +
     (S.wrong[q.id] ? '<span class="tag no">내 오답</span>' : '');
   window.__q = q; window.__inUnit = inUnit;
   return '<div class="card"><div class="row"><span class="sub">' + n + '/' + total + ' · ' + SUBJ[q.s] + ' ' + esc(q.n || '') + '</span><span class="sp"></span>' + tags + '</div>' +
@@ -223,7 +233,7 @@ function answer(k) {
   if (mcqLocked) return; mcqLocked = true;
   const q = window.__q, ok = k === q.a;
   document.querySelectorAll('.ch').forEach(b => { const kk = +b.dataset.k; if (kk === q.a) b.classList.add('ok'); else if (kk === k) b.classList.add('no'); });
-  const r = S.q[q.id] || { n: 0, ok: 0 }; r.n++; if (ok) r.ok++; r.last = ok; S.q[q.id] = r;
+  const r = S.q[q.id] || { n: 0, ok: 0 }; r.n++; if (ok) r.ok++; r.last = ok; r.day = today(); S.q[q.id] = r;
   if (ok) delete S.wrong[q.id]; else S.wrong[q.id] = 1;
   save();
   const link = (!window.__inUnit && q.u && U[q.u]) ? '<button class="btn" onclick="go(\'unit\',{id:\'' + q.u + '\',step:\'read\'})">📘 관련 요약 보기: ' + esc(U[q.u].title) + '</button>' : '';
@@ -275,7 +285,9 @@ V.cloze = ({ set, s }) => {
 V.quizMenu = () => {
   let h = hdr('문제 풀기');
   const wN = wrongIds().length, mN = Object.keys(S.mark).filter(k => k[0] === 'q').length;
-  h += '<div class="card"><button class="btn pri" ' + (wN ? '' : 'disabled') + ' onclick="go(\'quiz\',{set:\'wrong\'})">✍️ 내 오답 다시 풀기 (' + wN + ')</button>' +
+  h += '<div class="card"><button class="btn pri" style="background:var(--no);border-color:var(--no)" ' + ((wN || freshLeft().length) ? '' : 'disabled') + ' onclick="go(\'quiz\',{set:\'fresh\'})">🔥 오답 + 새 핵심문제 20</button>' +
+    '<div class="sub">안 푼 새 문제와 남은 오답을 번갈아 냅니다. 맞히면 빠지고, 틀리면 오답으로 남습니다.</div>' +
+    '<button class="btn" ' + (wN ? '' : 'disabled') + ' onclick="go(\'quiz\',{set:\'wrong\'})">✍️ 내 오답만 다시 풀기 (' + wN + ')</button>' +
     '<button class="btn" ' + (mN ? '' : 'disabled') + ' onclick="go(\'quiz\',{set:\'mark\'})">★ 저장한 문제 (' + mN + ')</button></div>';
   for (const s of [1, 2, 3]) {
     const all = D.questions.filter(q => q.s === s), st = qStat(all);
@@ -283,7 +295,8 @@ V.quizMenu = () => {
       '<div class="grid2" style="margin-top:6px"><button class="btn" onclick="go(\'quiz\',{set:\'rand\',s:' + s + '})">랜덤 10</button>' +
       '<button class="btn" onclick="go(\'quiz\',{set:\'exam\',s:' + s + '})">실전 20</button>' +
       '<button class="btn" onclick="go(\'quiz\',{set:\'new\',s:' + s + '})">안 푼 문제</button>' +
-      '<button class="btn" onclick="go(\'quiz\',{set:\'off\',s:' + s + '})">공식 기출</button></div></div>';
+      '<button class="btn" onclick="go(\'quiz\',{set:\'off\',s:' + s + '})">공식 기출</button>' +
+      '<button class="btn" style="grid-column:1/-1" ' + ((freshLeft(s).length || wrongIds().some(id => Qm[id].s === s)) ? '' : 'disabled') + ' onclick="go(\'quiz\',{set:\'fresh\',s:' + s + '})">🔥 오답 + 새 핵심 (새 ' + freshLeft(s).length + ')</button></div></div>';
   }
   return h;
 };
@@ -292,7 +305,8 @@ V.quiz = ({ set, s }) => {
   if (!qSession || qSession.key !== JSON.stringify(cur.p)) {
     let list;
     const sub = D.questions.filter(q => !s || q.s === s);
-    if (set === 'wrong') list = shuffle(wrongIds().map(id => Qm[id]));
+    if (set === 'fresh') list = freshMix(s);
+    else if (set === 'wrong') list = shuffle(wrongIds().map(id => Qm[id]));
     else if (set === 'mark') list = Object.keys(S.mark).filter(k => k[0] === 'q').map(k => Qm[k.slice(1)]).filter(Boolean);
     else if (set === 'exam') list = sub.filter(q => q.f.includes('x'));
     else if (set === 'off') list = sub.filter(q => q.f.includes('o'));
@@ -301,13 +315,14 @@ V.quiz = ({ set, s }) => {
     qSession = { key: JSON.stringify(cur.p), list, i: 0, ok: 0, wrong: [] };
   }
   const ss = qSession;
-  const name = { wrong: '내 오답', mark: '저장한 문제', exam: '실전 20', off: '공식 기출', new: '안 푼 문제', rand: '랜덤 10' }[set];
+  const name = { fresh: '오답 + 새 핵심', wrong: '내 오답', mark: '저장한 문제', exam: '실전 20', off: '공식 기출', new: '안 푼 문제', rand: '랜덤 10' }[set];
   let h = hdr((s ? SUBJ[s] + ' · ' : '') + name);
   if (!ss.list.length) return h + '<div class="card center sub">해당하는 문제가 없어요.</div>';
   if (ss.i >= ss.list.length) {
     const n = ss.list.length, ok = ss.list.filter(q => S.q[q.id] && S.q[q.id].last).length; qSession = null;
     const pct = Math.round(100 * ok / n);
     return h + '<div class="card center"><div class="big">' + ok + '/' + n + '</div><div class="sub">' + pct + '점 · 합격선은 과목당 40점↑, 평균 70점↑</div></div>' +
+      ((set === 'fresh' && (freshLeft(s).length || wrongIds().length)) ? '<button class="btn pri" style="background:var(--no);border-color:var(--no)" onclick="qSession=null;go(\'quiz\',{set:\'fresh\'' + (s ? ',s:' + s : '') + ',t:Date.now()},false)">🔥 다음 20문제</button>' : '') +
       '<button class="btn pri" onclick="go(\'quizMenu\')">문제 홈으로</button>' + (wrongIds().length ? '<button class="btn" onclick="go(\'quiz\',{set:\'wrong\'})">오답 다시 풀기</button>' : '');
   }
   h += mcqCard(ss.list[ss.i], ss.i + 1, ss.list.length, () => { ss.i++; render(); window.scrollTo(0, 0); }, false);
