@@ -92,7 +92,8 @@ V.home = () => {
     '<div class="bar"><i style="width:' + (100 * doneN / D.units.length).toFixed(1) + '%"></i></div>' +
     (nu ? '<button class="btn pri" onclick="go(\'unit\',{id:\'' + nu + '\',step:\'read\'})">이어서 학습 ▶ ' + esc(U[nu].title) + '</button>' : '<div class="sub">모든 요약을 한 번씩 끝냈어요. 빈칸 복습과 오답으로 다지세요.</div>') +
     ((wN || freshLeft().length) ? '<button class="btn pri" style="background:var(--no);border-color:var(--no)" onclick="go(\'quiz\',{set:\'fresh\'})">🔥 오답 + 새 핵심문제 20 (새 문제 ' + freshLeft().length + '개 남음)</button>' : '') +
-    '<a class="btn" style="text-align:center;text-decoration:none" href="new/">🆕 새 핵심문제 앱 (1차 90 · 2차 오답개념 90) ›</a>' +
+    '<div class="grid2"><a class="btn" style="text-align:center;text-decoration:none" href="new/">🆕 새 핵심문제</a>' +
+    '<a class="btn" style="text-align:center;text-decoration:none" href="mock/">📝 실전 모의고사</a></div>' +
     '<div class="grid2"><button class="btn" ' + (due ? '' : 'disabled') + ' onclick="go(\'cloze\',{set:\'due\'})">🧠 빈칸 복습 ' + due + '</button>' +
     '<button class="btn" ' + (wN ? '' : 'disabled') + ' onclick="go(\'quiz\',{set:\'wrong\'})">✍️ 오답 다시 ' + wN + '</button></div></div>';
   h += '<div class="card"><div class="sub" style="margin-bottom:4px">과목별</div>';

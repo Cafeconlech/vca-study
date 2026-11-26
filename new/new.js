@@ -58,7 +58,7 @@ function home() {
   h += '<div class="card"><label class="row" style="cursor:pointer"><input type="checkbox" style="width:auto" ' + (S.opt.shuffle ? 'checked' : '') + ' onchange="S.opt.shuffle=this.checked;save()"> <span class="sp">안 푼 문제를 섞어서 내기</span></label>' +
     '<button class="btn" onclick="copyWrong()">📋 틀린 문제 번호 복사 (Claude에게 보내기용)</button><div id="wout"></div>' +
     '<button class="btn ghost" onclick="if(confirm(\'' + SET[t] + ' 기록을 지울까요?\')){inSet(' + t + ').forEach(q=>delete S.r[q.id]);save();render()}">이 묶음 기록 지우기</button>' +
-    '<a class="btn ghost" href="../">← 요약·빈칸 학습 앱으로</a></div>';
+    '<a class="btn ghost" href="../mock/">📝 실전 모의고사 1~3회</a><a class="btn ghost" href="../">← 요약·빈칸 학습 앱으로</a></div>';
   return h;
 }
 
